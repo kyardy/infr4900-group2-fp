@@ -26,7 +26,6 @@ class Blockchain:
         self.difficulty = 3
         self.wallets = {}
         self.mempool = {}
-
         self.add()
 
 ###################### ADD CODE ONLY BETWEEN THESE LINES! #####################
@@ -35,35 +34,48 @@ class Blockchain:
 
         wallet = {
             'public_key': binascii.b2a_hex(os.urandom(16)).decode('utf-8'),
-            'private_key': binascii.b2a_hex(os.urandom(16)).decode('utf-8'),
+            #'private_key': binascii.b2a_hex(os.urandom(16)).decode('utf-8'),
             'balance': 10.0,
         }
 
         self.wallets[wallet['public_key']] = wallet
         return wallet
 
-    def create_transaction(self, from_, to, amount, private_key):
+    def create_transaction(self, cid, from_, to, amount, message, startgas, gasprice):
 
-        if not self._validate_transaction(from_, to, amount, private_key):
+        if not self._validate_transaction(from_, to, amount, message):
             return {'error': 'invalid transaction'}
 
         transaction = {
             'time': datetime.datetime.utcnow().timestamp(),
+            'contract_id': cid,
             'from': from_,
             'to': to,
             'amount': float(amount),
+            'message': message,
+            'startgas': float(startgas),
+            'gasprice': float(gasprice)
         }
+
 
         transaction_id = self._hash_data(transaction)
         self.mempool[transaction_id] = transaction
 
         return {transaction_id: transaction}
 
-    def _validate_transaction(self, from_, to, amount, private_key):
+    def _validate_transaction(self, from_, to, amount, message):
 
         # Check that values actually exist
-        if not from_ or not to or not amount or not private_key:
+        if not from_ or not to or not amount:
             return False
+
+        # Check if message field is empty, do transaction
+        if not message:
+        	return True
+
+        # Check if message pub key addr exists
+        if message not in self.wallet.values():
+        	return False
 
         # Check that addresses exist and are not the same
         if from_ not in self.wallets.keys() \
@@ -72,8 +84,8 @@ class Blockchain:
             return False
 
         # Check that transaction generator is owner
-        if not private_key == self.wallets[from_]['private_key']:
-            return False
+        #if not private_key == self.wallets[from_]['private_key']:
+        #    return False
 
         # Check that amount is float or int
         try:
@@ -280,7 +292,7 @@ def get_wallet_balances():
 @app.route('/api/blockchain/transaction', methods=['POST'])
 def add_transaction():
 
-    if not all(k in request.form for k in ['from', 'to', 'amount', 'private_key']):
+    if not all(k in request.form for k in ['from', 'to', 'amount', 'message']):
         return Response(
             response=json.dumps({'error': 'missing required parameter(s)'}),
             status=400,
@@ -293,7 +305,8 @@ def add_transaction():
                 request.form['from'],
                 request.form['to'],
                 request.form['amount'],
-                request.form['private_key']
+                request.form['message']
+                #request.form['private_key']
             )
         ),
         status=200,
